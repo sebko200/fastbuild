@@ -1,0 +1,31 @@
+name: Restore base caches to GitHub Cache
+on: workflow_dispatch
+permissions: write-all
+jobs:
+  restore:
+    name: Restore ${{ matrix.target }} caches from base-bldcache
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: {target: [ubi2-oc, ubi2, SNAPSHOT]}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Extract caches from base-bldcache-${{ matrix.target }} image
+      run: |
+        docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "$GH_TOKEN"
+        I=ghcr.io/w1700k/fastbuild_base:base-bldcache-${{ matrix.target }}
+        docker pull "$I" && CID=$(docker create "$I")
+        for d in ghcache stcache dlcache; do mkdir -p "$d" && docker cp "$CID:/$d/." "$d"; done
+
+    - name: Delete old caches
+      run: for p in dlcache. staging-${{ matrix.target }}. ccache-${{ matrix.target }}.; do gh cache list --json key,id --jq '.[] | select(.key | startswith("'"$p"'")) | .id' | xargs -r -n1 gh cache delete; done || true
+
+    - uses: actions/cache/save@v5
+      with: {path: 'ghcache', key: 'ccache-${{ matrix.target }}.${{ github.run_id }}'}
+    - uses: actions/cache/save@v5
+      with: {path: 'stcache', key: 'staging-${{ matrix.target }}.${{ github.run_id }}'}
+    - uses: actions/cache/save@v5
+      with: {path: 'dlcache', key: 'dlcache.${{ github.run_id }}'}
