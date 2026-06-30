@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
-      matrix: {target: [ubi2-oc, ubi2, SNAPSHOT]}
+      matrix: {target: [ubi2]}
+      # matrix: {target: [ubi2-oc, ubi2, SNAPSHOT]}
     steps:
     - uses: actions/checkout@v7
 
@@ -105,7 +106,7 @@ jobs:
         find -L openwrt_bin/targets/*/* -maxdepth 1 -type f -exec install -D -t firmware {} +
         VERSION="${{ matrix.target }}_$(date +'%Y.%m.%d')_$(jq -r '.version_code' firmware/profiles.json)"
         sed -i "s/^/    /; 1s/^/## $VERSION\n\n/" openwrt_bin/build_info
-        gh release list --json tagName --jq '.[].tagName' | grep "^${{ matrix.target }}_" | xargs -r gh release delete --cleanup-tag -y || true
+        # gh release list --json tagName --jq '.[].tagName' | grep "^${{ matrix.target }}_" | xargs -r gh release delete --cleanup-tag -y || true
         gh release create $VERSION firmware/*sysupgrade.itb --title $VERSION --notes-file openwrt_bin/build_info
 
     - name: Upload builder container
